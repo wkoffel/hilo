@@ -21,15 +21,41 @@ forecastio_api_key = os.environ.get("FORECAST_IO_API_KEY")
 lat = 42.3664429
 lng = -71.4524137
 
-lcd = LCD.Adafruit_CharLCDPlate()
-lcd.set_backlight(0)
+## Note: the pin configuration here is for direct LCD control.
+##       below is the simpler setup for using Adafruit Char_LCD_Plate with I2C control
+# Raspberry Pi pin configuration:
+lcd_rs        = 25
+lcd_en        = 24
+lcd_d4        = 23
+lcd_d5        = 17
+lcd_d6        = 21
+lcd_d7        = 22
+lcd_backlight = 4
 
-# The actual work, doing the forecast
+# Define LCD column and row size for 16x2 LCD.
+lcd_columns = 16
+lcd_rows    = 2
+
+# Initialize the LCD using the pins above.
+lcd = LCD.Adafruit_CharLCD(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7, 
+			   lcd_columns, lcd_rows, lcd_backlight, invert_polarity=False)
+lcd.set_backlight(0)
+lcd.clear()
+
+# pin to actually fetch forecast and display
+forecast_pin = 12
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(forecast_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+
+# Now the actual work, doing the forecast
 def show_forecast():
     dayToShow = 0
     if(datetime.datetime.now().hour > 17):
         dayToShow = 1
     
+    lcd.set_backlight(1)
     lcd.show_cursor(True)
     lcd.blink(True)
     lcd.message("Fetching\nForecast")
@@ -54,16 +80,8 @@ def show_forecast():
     lcd.set_backlight(0)
     lcd.clear()
 
-buttons = ( (LCD.SELECT, 'Select', (1,1,1)),
-            (LCD.LEFT,   'Left'  , (1,0,0)),
-            (LCD.UP,     'Up'    , (0,0,1)),
-            (LCD.DOWN,   'Down'  , (0,1,0)),
-            (LCD.RIGHT,  'Right' , (0,1,1)) )
-
 # And we trigger it from a simple button press
 while True:
-    for button in buttons:
-        if lcd.is_pressed(button[0]):
-            # Button is pressed, change the message and backlight.
-            lcd.set_color(button[2][0], button[2][1], button[2][2])
-            show_forecast()
+    input_state = GPIO.input(forecast_pin)
+    if input_state == False:
+        show_forecast()
